@@ -43,7 +43,7 @@ p.help { font-size: 15px; color: var(--muted); }
   <h1>쌓기나무 쌓기</h1>
   <div class="tasks" id="tasks"></div>
 </header>
-<p class="help">바닥 칸이나 쌓기나무를 누르면 하나씩 놓여요. [빼기]를 켜고 누르면 맨 위 하나가 빠져요. 화면을 끌면 돌아가요. [본 모양]을 누르면 지금 쌓은 모양을 위, 앞, 옆에서 본 모양이 나와요.</p>
+<p class="help">바닥 칸이나 쌓기나무를 누르면 하나씩 놓여요. [빼기]를 켜고 누르면 맨 위 하나가 빠져요. 화면을 끌면 돌아가요. [본 모양]이나 [층별 모양]을 누르면 지금 쌓은 모양을 확인할 수 있어요.</p>
 <main>
   <section class="target" id="target"><h2>이 모양을 만들어 봐요</h2><div class="figs" id="figs"></div></section>
   <div id="stage"></div>
@@ -52,13 +52,14 @@ p.help { font-size: 15px; color: var(--muted); }
 <script src="three.min.js"></script>
 <script src="blocks-viewer.js"></script>
 <script>
-// 문제 목록. show: 'views'는 위·앞·옆 모양을, 'numbers'는 수를 쓴 위에서 본 모양을 보여 준다.
+// 문제 목록. show: 'views'는 위·앞·옆 모양을, 'numbers'는 수를 쓴 위에서 본 모양을, 'floors'는 층별로 위에서 본 모양을 보여 준다.
 // check: 오른쪽의 '지금 쌓은 모양' 칸을 처음부터 보일지(false면 [본 모양]을 눌러야 보인다. 먼저 그리고 확인할 때).
 const TASKS = [
   { name: '6차시 문제 1', show: 'views', heights: [[3,2,1],[1,0,1]], check: true },
   { name: '6차시 문제 2', show: 'views', heights: [[2,2],[2,2]], check: true },
   { name: '7차시 문제 1', show: 'numbers', heights: [[0,3,2],[3,2,0],[1,0,0]], check: false },
   { name: '7차시 문제 2', show: 'numbers', heights: [[2,2,3],[1,0,1],[0,0,1]], check: false },
+  { name: '8차시 문제 1', show: 'floors', heights: [[2,2,1],[1,3,0],[0,1,0]], check: false },
   { name: '자유롭게 쌓기', show: null, heights: null, check: false }
 ];
 
@@ -83,6 +84,15 @@ function grid(cells, w, h, unit, nums) {
 function drawTarget(heights, show) {
   const box = document.getElementById('figs'); box.innerHTML = '';
   const a = BlocksViewer.analyze(heights), u = 28;
+  if (show === 'floors') {   // 층별로 위에서 본 모양 (아래쪽이 앞)
+    for (let k = 1; k <= a.max; k++) {
+      const cells = [];
+      for (let r = 0; r < a.rows; r++) for (let c = 0; c < a.cols; c++) if (a.h(r, c) >= k) cells.push([c, r]);
+      const f = document.createElement('figure'); f.appendChild(grid(cells, a.cols, a.rows, u));
+      const cap = document.createElement('figcaption'); cap.textContent = k + '층'; f.appendChild(cap); box.appendChild(f);
+    }
+    return;
+  }
   if (show === 'numbers') {   // 수를 쓴 위에서 본 모양 (아래쪽이 앞)
     const cells = [];
     for (let r = 0; r < a.rows; r++) for (let c = 0; c < a.cols; c++) if (a.h(r, c)) cells.push([c, r]);
@@ -107,7 +117,7 @@ function start(i) {
   const stage = document.getElementById('stage'); stage.innerHTML = '';
   const host = document.createElement('div'); host.className = 'blocks-viewer';
   host.dataset.shapes = JSON.stringify([{ heights: [[0]] }]);
-  host.dataset.tools = t.heights ? 'angles,build,views,count' : 'angles,build,views,numbers,count';
+  host.dataset.tools = !t.heights ? 'angles,build,views,numbers,count' : t.show === 'floors' ? 'angles,build,floors,count' : 'angles,build,views,count';
   host.dataset.open = t.check ? 'views,count' : '';
   host.dataset.start = 'add';
   stage.appendChild(host);
