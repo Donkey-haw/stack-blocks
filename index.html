@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>쌓기나무 쌓기</title>
+<!--
+  쌓기나무 쌓기 (학생용). 문제를 바꾸려면 아래 TASKS만 고친다. heights: 첫 줄이 뒤쪽, 수는 쌓은 층수.
+-->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/static/pretendard.min.css">
+<style>
+:root { --bg: #050505; --text: #FFFFFF; --muted: #B7B7B7; --card: #1C1C1C; --green: #4CCB78; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: "Pretendard", "Noto Sans KR", "Apple SD Gothic Neo", sans-serif; word-break: keep-all; }
+body { display: flex; flex-direction: column; padding: 16px; gap: 12px; overflow: hidden; }
+header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; }
+h1 { font-size: 24px; font-weight: 800; margin-right: 8px; }
+.tasks { display: flex; flex-wrap: wrap; gap: 8px; }
+.tasks button { font: inherit; font-size: 18px; font-weight: 700; color: var(--muted); background: var(--card); border: 0; border-radius: 12px; padding: 10px 16px; cursor: pointer; }
+.tasks button.on { color: var(--bg); background: var(--green); }
+main { flex: 1; min-height: 0; display: flex; gap: 16px; }
+.target { flex: 0 0 auto; background: var(--card); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.target h2 { font-size: 18px; color: var(--muted); }
+.target .figs { display: flex; flex-direction: column; gap: 12px; align-items: center; }
+.target figure { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.target figcaption { font-size: 16px; font-weight: 700; color: var(--muted); }
+.target.hide { display: none; }
+#stage { flex: 1; min-width: 0; position: relative; }
+#stage .blocks-viewer { position: absolute; inset: 0; }
+/* 뷰어 버튼을 패드에서 누르기 쉽게 (blocks-viewer.js의 기본값 덮어쓰기) */
+#stage .bv-bar { flex-wrap: wrap; gap: 8px 20px; }
+#stage .bv-bar button { font-size: 18px; padding: 8px 4px; opacity: 1; }
+#stage .bv-bar button.bv-end { margin-right: 12px; }
+#stage .bv-label { font-size: 20px; }
+#stage .bv-count { font-size: 22px; }
+#stage .bv-view figcaption { font-size: 16px; }
+#stage .bv-ui:not(.bv-multi) .bv-side { min-width: 120px; }
+p.help { font-size: 15px; color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>쌓기나무 쌓기</h1>
+  <div class="tasks" id="tasks"></div>
+</header>
+<p class="help">바닥 칸이나 쌓기나무를 누르면 하나씩 놓여요. [빼기]를 켜고 누르면 맨 위 하나가 빠져요. 화면을 끌면 돌아가요.</p>
+<main>
+  <section class="target" id="target"><h2>이 모양을 만들어 봐요</h2><div class="figs" id="figs"></div></section>
+  <div id="stage"></div>
+</main>
+
+<script src="three.min.js"></script>
+<script src="blocks-viewer.js"></script>
+<script>
+// 문제 목록: 정답 모양에서 위·앞·옆 모양을 계산해 보여 준다. (6차시 활동 1·2)
+const TASKS = [
+  { name: '문제 1', heights: [[3,2,1],[1,0,1]] },
+  { name: '문제 2', heights: [[2,2],[2,2]] },
+  { name: '자유롭게 쌓기', heights: null }
+];
+
+function grid(cells, w, h, unit) {
+  const ns = 'http://www.w3.org/2000/svg', svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('width', w * unit + 4); svg.setAttribute('height', h * unit + 4);
+  cells.forEach(([x, y]) => {
+    const r = document.createElementNS(ns, 'rect');
+    r.setAttribute('x', x * unit + 2); r.setAttribute('y', y * unit + 2); r.setAttribute('width', unit); r.setAttribute('height', unit);
+    r.setAttribute('fill', '#F2D49B'); r.setAttribute('stroke', '#3B2A17'); r.setAttribute('stroke-width', 2);
+    svg.appendChild(r);
+  });
+  return svg;
+}
+function drawTarget(heights) {
+  const box = document.getElementById('figs'); box.innerHTML = '';
+  const a = BlocksViewer.analyze(heights), u = 28;
+  const top = [], front = [], side = [];
+  for (let r = 0; r < a.rows; r++) for (let c = 0; c < a.cols; c++) if (a.h(r, c)) top.push([c, r]);
+  a.front.forEach((m, c) => { for (let k = 0; k < m; k++) front.push([c, a.max - 1 - k]); });
+  a.side.forEach((m, i) => { for (let k = 0; k < m; k++) side.push([i, a.max - 1 - k]); });
+  [['위', grid(top, a.cols, a.rows, u)], ['앞', grid(front, a.cols, a.max, u)], ['옆', grid(side, a.rows, a.max, u)]].forEach(([n, svg]) => {
+    const f = document.createElement('figure'); f.appendChild(svg);
+    const c = document.createElement('figcaption'); c.textContent = n; f.appendChild(c); box.appendChild(f);
+  });
+}
+function start(i) {
+  const t = TASKS[i];
+  document.querySelectorAll('#tasks button').forEach((b, k) => b.classList.toggle('on', k === i));
+  document.getElementById('target').classList.toggle('hide', !t.heights);
+  if (t.heights) drawTarget(t.heights);
+  const stage = document.getElementById('stage'); stage.innerHTML = '';
+  const host = document.createElement('div'); host.className = 'blocks-viewer';
+  host.dataset.shapes = JSON.stringify([{ heights: [[0]] }]);
+  host.dataset.tools = 'angles,build,views,count';
+  host.dataset.open = 'views,count';
+  host.dataset.start = 'add';
+  stage.appendChild(host);
+  BlocksViewer.mount(host);
+}
+TASKS.forEach((t, i) => {
+  const b = document.createElement('button'); b.type = 'button'; b.textContent = t.name;
+  b.addEventListener('click', () => start(i));
+  document.getElementById('tasks').appendChild(b);
+});
+start(0);
+</script>
+</body>
+</html>
