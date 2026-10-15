@@ -17,6 +17,7 @@
     marks  : 색을 칠할 쌓기나무 [[줄, 칸, 층], ...] (모두 0부터). 예: "marks":[[0,2,0]] → 첫 줄 세 번째 칸 1층.
     colors : 자리마다 다른 색 {"줄,칸": "#색"}. 예: "colors":{"0,0":"#F4B6C2"} (교과서처럼 자리별로 색을 나눌 때)
     data-start: "add"이면 처음부터 [쌓기]가 켜진 채로 시작한다 (빈 바닥에서 쌓아 갈 때).
+    data-limit: 수(예: "3")를 주면 바닥을 그 크기의 칸(3×3)으로 고정하고 그 안에만 쌓게 한다 (9차시 놀이).
     data-views: 본 모양 중 보여 줄 것 "위,앞,옆"에서 고른다. 예: "위" (옆 모양이 답을 알려 줄 때)
     tools 의 floors(층별 모양): 1층, 2층, …을 위에서 본 모양을 옆에 띄운다. 본 모양과 번갈아 켜진다.
     data-home : 처음 각도 "옆으로 돌린 각도,내려다보는 각도" (기본 35,28). 예: "20,25"
@@ -171,7 +172,9 @@
     for (let r = b.r0; r <= b.r1; r++) { const row = []; for (let c = b.c0; c <= b.c1; c++) row.push(this.h(r, c)); heights.push(row); }
     this.a = analyze(heights);
     this.b = b;
-    this.cx = (b.c0 + b.c1 + 1) / 2; this.cz = (b.r0 + b.r1 + 1) / 2;   // 모양 가운데를 원점에 둔다
+    const L = this.state.limit, w = L ? { r0: 0, r1: L - 1, c0: 0, c1: L - 1 } : b;   // 칸 제한이 있으면 그 칸을 기준으로 둔다
+    const gap = L ? 0 : (this.state.mode ? 1 : 0);
+    this.cx = (w.c0 + w.c1 + 1) / 2; this.cz = (w.r0 + w.r1 + 1) / 2;   // 모양 가운데를 원점에 둔다
 
     this.blocks = []; this.pickables = [];
     this.cells.forEach((n, k) => {
@@ -199,7 +202,7 @@
     const arrow = new T.Mesh(new T.ShapeGeometry(shape), new T.MeshBasicMaterial({ color: C.mark, side: T.DoubleSide }));
     arrow.userData.ownGeo = true;
     arrow.rotation.x = -Math.PI / 2;
-    const frontZ = b.r1 + 1 - this.cz + (this.state.mode ? 1 : 0);
+    const frontZ = w.r1 + 1 - this.cz + gap;
     arrow.position.set(0, 0.01, frontZ + 0.55);
     const label = textSprite('앞', C.mark, 0.75);
     label.position.set(0, 0.35, frontZ + 1.35);
@@ -207,14 +210,14 @@
     this.labels = [label];
     if (this.state.right) {   // '오른쪽' 표시
       const right = textSprite('오른쪽', C.mark, 0.75);
-      right.position.set(b.c1 + 1 - this.cx + (this.state.mode ? 1 : 0) + 0.4 + right.scale.x / 2, 0.35, 0);
+      right.position.set(w.c1 + 1 - this.cx + gap + 0.4 + right.scale.x / 2, 0.35, 0);
       this.root.add(right); this.labels.push(right);
     }
 
-    // 쌓기 중에는 둘레 한 칸까지 바닥 칸을 보여 준다
+    // 쌓기 중에는 둘레 한 칸까지 바닥 칸을 보여 준다 (칸 제한이 있으면 그 칸만)
     if (this.state.mode) {
       const pts = [];
-      const R0 = b.r0 - 1, R1 = b.r1 + 1, C0 = b.c0 - 1, C1 = b.c1 + 1;
+      const R0 = w.r0 - gap, R1 = w.r1 + gap, C0 = w.c0 - gap, C1 = w.c1 + gap;
       const X = c => c - this.cx, Z = r => r - this.cz;
       for (let r = R0; r <= R1 + 1; r++) pts.push(X(C0), 0, Z(r), X(C1 + 1), 0, Z(r));
       for (let c = C0; c <= C1 + 1; c++) pts.push(X(c), 0, Z(R0), X(c), 0, Z(R1 + 1));
@@ -258,8 +261,8 @@
 
     // 화면에 들어올 크기: 모양·앞 표시·바닥 칸의 점들을 여러 각도에서 비춰 보고 가장 큰 폭에 맞춘다.
     // 돌리는 동안 크기가 바뀌지 않도록 각도마다 다시 맞추지 않는다.
-    const m = s.mode ? 1 : 0, levels = Math.max(1, a.max + m), H = levels + (levels - 1) * lift + (s.numbers > 0.01 ? 0.9 : 0);
-    const W = Math.max(1, a.cols) / 2 + m, D = Math.max(1, a.rows) / 2 + m;
+    const m = s.mode ? 1 : 0, levels = Math.max(s.limit || 1, a.max + m), H = levels + (levels - 1) * lift + (s.numbers > 0.01 ? 0.9 : 0);
+    const W = s.limit ? s.limit / 2 : Math.max(1, a.cols) / 2 + m, D = s.limit ? s.limit / 2 : Math.max(1, a.rows) / 2 + m;
     const pts = [];
     [-W, W].forEach(x => [-D, D].forEach(z => [0, H].forEach(y => pts.push(new T.Vector3(x, y, z)))));
     this.labels.forEach(l => {
@@ -319,6 +322,8 @@
   };
   View.prototype.canAdd = function (r, c, level) {
     if (this.h(r, c) !== level || level >= MAX_HEIGHT) return false;
+    const L = this.state.limit;
+    if (L) return r >= 0 && r < L && c >= 0 && c < L;
     const b = this.b, empty = !this.cells.size;
     const rows = empty ? 1 : Math.max(b.r1, r) - Math.min(b.r0, r) + 1, cols = empty ? 1 : Math.max(b.c1, c) - Math.min(b.c0, c) + 1;
     return rows <= MAX_SIZE && cols <= MAX_SIZE;
@@ -418,7 +423,7 @@
 
     const views = [];
     const state = {
-      theta: home.theta, phi: home.phi, mode: null, home, right: host.dataset.right === '1',
+      theta: home.theta, phi: home.phi, mode: null, home, right: host.dataset.right === '1', limit: +host.dataset.limit || 0,
       views: flag('views'), numbers: flag('numbers'), layers: flag('layers'), ghost: flag('ghost'), count: flag('count'),
       tween: null,
       changed() { views.forEach(v => v.render()); },
